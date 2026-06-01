@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacies de Garde — Localisateur</title>
+    <meta name="theme-color" content="#0d1b2a">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg:        #0d1b2a;
+            --card:      #112236;
+            --deep:      #091422;
+            --green:     #00c896;
+            --green-dim: rgba(0,200,150,0.12);
+            --blue:      #4da8ff;
+            --blue-dim:  rgba(77,168,255,0.10);
+            --red:       #ff5a5a;
+            --muted:     #6b8aaa;
+            --text:      #ddeeff;
+            --border:    rgba(77,168,255,0.12);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(ellipse 90% 50% at 50% -5%, rgba(0,200,150,0.07) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 40% at 90% 80%, rgba(77,168,255,0.05) 0%, transparent 60%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 28px 16px 40px;
+        }
+
+        .app { width: 100%; max-width: 480px; animation: fadeUp 0.6s ease both; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+        /* ── HEADER ── */
+        .header { text-align: center; margin-bottom: 28px; }
+        .header-icon { font-size: 36px; margin-bottom: 10px; display: block; }
+        .app-title { font-size: 24px; font-weight: 700; color: var(--green); letter-spacing: -0.5px; }
+        .app-sub { font-size: 12px; color: var(--muted); margin-top: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+        .header-line { width: 50px; height: 2px; background: linear-gradient(90deg, transparent, var(--green), transparent); margin: 14px auto 0; }
+
+        /* ── INPUTS ── */
+        .select-wrap { margin-bottom: 12px; }
+        .app-select {
+            background: var(--card); color: var(--text);
+            border: 1px solid var(--border); padding: 10px 14px;
+            border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 13px;
+            width: 100%; outline: none; transition: border-color 0.2s; cursor: pointer;
+        }
+        .app-select:focus { border-color: var(--green); }
+
+        .manual-pos-wrap { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+        .pos-input {
+            background: var(--card); color: var(--text);
+            border: 1px solid rgba(0,200,150,0.2); padding: 10px 14px;
+            border-radius: 12px; font-family: 'DM Mono', monospace; font-size: 13px;
+            outline: none; transition: border-color 0.2s; text-align: center; width: 100%;
+        }
+        .pos-input:focus { border-color: var(--green); }
+        .pos-input::placeholder { color: var(--muted); font-size: 12px; font-family: 'DM Sans', sans-serif; }
+        .apply-pos-btn {
+            background: var(--green-dim); color: var(--green);
+            border: 1px solid rgba(0,200,150,0.3); padding: 11px;
+            border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 13px;
+            font-weight: 600; cursor: pointer; transition: background .2s; width: 100%;
+        }
+        .apply-pos-btn:hover { background: rgba(0,200,150,0.22); }
+        .pos-error { font-size: 11px; color: var(--red); text-align: center; padding: 4px; }
+        .manual-location-info {
+            font-size: 12px; color: var(--green); text-align: center;
+            background: var(--green-dim); border: 1px solid rgba(0,200,150,0.2);
+            border-radius: 8px; padding: 8px 12px;
+        }
+
+        /* ── GPS STATUS BAR ── */
+        .gps-bar {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--blue-dim); border: 1px solid rgba(77,168,255,0.15);
+            border-radius: 10px; padding: 10px 14px; font-size: 12px; color: var(--blue);
+            margin-bottom: 20px;
+        }
+        .gps-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex-shrink: 0; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.4;transform:scale(1.4);} }
+
+        /* ── SECTION HEADER ── */
+        .sec-head {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; color: var(--green); font-weight: 600;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 8px; margin-bottom: 14px;
+        }
+
+        /* ── PHARMACY LIST ── */
+        .pharmacy-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+        .pharmacy-item {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 14px; padding: 14px 16px;
+            transition: transform .15s, border-color .25s;
+        }
+        .pharmacy-item:hover { transform: translateY(-2px); border-color: rgba(0,200,150,0.3); }
+        .p-rank {
+            flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+            background: var(--green-dim); color: var(--green);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 13px; font-family: 'DM Mono', monospace;
+        }
+        .p-info { flex: 1; min-width: 0; }
+        .p-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .p-dist { font-size: 11px; color: var(--blue); margin-top: 3px; }
+        .p-state { font-size: 12px; color: var(--muted); text-align: center; padding: 20px 0; }
+        .load-more-btn {
+            width: 100%; padding: 11px; border-radius: 12px;
+            background: var(--blue-dim); color: var(--blue);
+            border: 1px solid rgba(77,168,255,0.2);
+            font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: background .2s;
+        }
+        .load-more-btn:hover { background: rgba(77,168,255,0.18); }
+        .btn-map {
+            flex-shrink: 0; padding: 6px 10px; border-radius: 9px;
+            font-size: 11px; font-weight: 600; text-decoration: none; cursor: pointer;
+            background: var(--green-dim); color: var(--green);
+            border: 1px solid rgba(0,200,150,0.25); transition: background .2s; white-space: nowrap;
+        }
+        .btn-map:hover { background: rgba(0,200,150,0.22); }
+
+        /* ── GLOBAL MAPS LINK ── */
+        .maps-global { text-align: center; margin-bottom: 24px; }
+        .maps-global a {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: var(--green); font-size: 13px; font-weight: 600;
+            text-decoration: none; border-bottom: 1px dashed rgba(0,200,150,0.4);
+            padding-bottom: 2px; transition: color .2s;
+        }
+        .maps-global a:hover { color: #2fffc0; }
+
+        /* ── ZONE TITLE ── */
+        #zone-title { font-size: 13px; }
+
+        /* ── FOOTER ── */
+        .footer { text-align: center; font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,0.12); text-transform: uppercase; padding: 20px 0 0; }
+
+        /* ── EMERGENCY CARD ── */
+        .emergency-card {
+            background: linear-gradient(135deg, rgba(255,90,90,0.08), var(--card));
+            border: 1px solid rgba(255,90,90,0.25); border-radius: 14px;
+            padding: 16px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 12px;
+        }
+        .emergency-icon { font-size: 28px; flex-shrink: 0; }
+        .emergency-title { font-size: 13px; font-weight: 700; color: var(--red); margin-bottom: 4px; }
+        .emergency-numbers { display: flex; flex-direction: column; gap: 4px; }
+        .emergency-num { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .emergency-num-info { display: flex; align-items: baseline; gap: 6px; flex: 1; }
+        .emergency-num-digits { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 700; color: var(--text); }
+        .emergency-num-label { color: var(--muted); font-size: 11px; }
+        .call-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: var(--red); color: #fff;
+            border: none; border-radius: 20px;
+            padding: 6px 14px; font-family: 'DM Sans', sans-serif;
+            font-size: 12px; font-weight: 700; cursor: pointer;
+            text-decoration: none; white-space: nowrap;
+            box-shadow: 0 2px 12px rgba(255,90,90,0.35);
+            transition: background .15s, transform .1s, box-shadow .15s;
+            flex-shrink: 0;
+        }
+        .call-btn:hover { background: #ff3333; box-shadow: 0 4px 18px rgba(255,90,90,0.5); }
+        .call-btn:active { transform: scale(0.96); }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="header">
+        <span class="header-icon">💊</span>
+        <div class="app-title">Pharmacies de Garde</div>
+        <div class="app-sub">Localisateur en temps réel</div>
+        <div class="header-line"></div>
+    </div>
+
+    <!-- Mode de localisation -->
+    <div class="select-wrap">
+        <select id="pos-mode-select" class="app-select">
+            <option value="auto" selected>📡 Localisation automatique (GPS)</option>
+            <option value="manual">✏️ Saisir les coordonnées manuellement</option>
+        </select>
+    </div>
+
+    <div id="manual-pos-panel" class="manual-pos-wrap" style="display:none;">
+        <input type="text" id="manual-coords" class="pos-input" placeholder="Ex: 48.856600, 2.352200" dir="ltr" autocomplete="off">
+        <button id="apply-pos-btn" class="apply-pos-btn">✓ Appliquer la position</button>
+        <div id="pos-error" class="pos-error" style="display:none;"></div>
+        <div id="manual-location-info" class="manual-location-info" style="display:none;"></div>
+    </div>
+
+    <!-- GPS status -->
+    <div class="gps-bar">
+        <div class="gps-dot"></div>
+        <span id="gps-txt">Activation du GPS en cours...</span>
+    </div>
+
+    <!-- Lien Google Maps global -->
+    <div class="maps-global">
+        <a id="global-maps-link" href="#" target="_blank">
+            🗺️ Voir les pharmacies autour de moi sur Google Maps
+        </a>
+    </div>
+
+    <!-- Urgences -->
+    <div class="emergency-card">
+        <div class="emergency-icon">🚨</div>
+        <div style="flex:1">
+            <div class="emergency-title" id="emergency-title">Numéros d'urgence</div>
+            <div class="emergency-numbers" id="emergency-numbers">
+                <div class="emergency-num" style="color:var(--muted);font-size:12px;">Détection du pays en cours…</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste pharmacies -->
+    <div class="sec-head">
+        <span>💊</span>
+        <span id="zone-title">Pharmacies à proximité</span>
+    </div>
+    <div class="pharmacy-list" id="pharmacy-list"></div>
+
+    <div class="footer">PHARMACY LOCATOR · GPS-POWERED · REAL-TIME</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+<script>
+const d2r = d => d * Math.PI / 180;
+
+let currentLat = null;
+let currentLng = null;
+let gpsWatchId = null;
+let pharmacySearchSeq = 0;
+let appLocationSeq = 0;
+let lastCountryCode = '';
+
+const EMERGENCY_DB = {
+    TN: { name: 'Tunisie', flag: '🇹🇳', numbers: [
+        { num: '190', label: 'Police nationale' },
+        { num: '197', label: 'Garde nationale' },
+        { num: '198', label: 'Protection civile (Pompiers)' },
+        { num: '1404', label: 'SAMU urgences médicales' },
+    ]},
+    FR: { name: 'France', flag: '🇫🇷', numbers: [
+        { num: '15', label: 'SAMU' },
+        { num: '17', label: 'Police secours' },
+        { num: '18', label: 'Pompiers' },
+        { num: '112', label: 'Urgences Europe' },
+    ]},
+    DE: { name: 'Allemagne', flag: '🇩🇪', numbers: [
+        { num: '112', label: 'Urgences / Pompiers' },
+        { num: '110', label: 'Police' },
+    ]},
+    RU: { name: 'Russie', flag: '🇷🇺', numbers: [
+        { num: '112', label: 'Urgences unifiées' },
+        { num: '103', label: 'Ambulance' },
+        { num: '102', label: 'Police' },
+        { num: '101', label: 'Pompiers' },
+    ]},
+    US: { name: 'États-Unis', flag: '🇺🇸', numbers: [
+        { num: '911', label: 'Police / Ambulance / Pompiers' },
+    ]},
+    AE: { name: 'Émirats arabes unis', flag: '🇦🇪', numbers: [
+        { num: '999', label: 'Police' },
+        { num: '998', label: 'Ambulance' },
+        { num: '997', label: 'Pompiers' },
+    ]},
+    SA: { name: 'Arabie Saoudite', flag: '🇸🇦', numbers: [
+        { num: '911', label: 'Urgences unifiées' },
+        { num: '999', label: 'Police' },
+        { num: '997', label: 'Croissant Rouge / Ambulance' },
+    ]},
+    MA: { name: 'Maroc', flag: '🇲🇦', numbers: [
+        { num: '190', label: 'Sûreté nationale' },
+        { num: '177', label: 'Gendarmerie royale' },
+        { num: '150', label: 'SAMU' },
+        { num: '15', label: 'Pompiers' },
+    ]},
+    DZ: { name: 'Algérie', flag: '🇩🇿', numbers: [
+        { num: '17', label: 'Police' },
+        { num: '14', label: 'Gendarmerie' },
+        { num: '21', label: 'Pompiers / SAMU' },
+    ]},
+    LY: { name: 'Libye', flag: '🇱🇾', numbers: [
+        { num: '1515', label: 'Police' },
+        { num: '193', label: 'Ambulance' },
+        { num: '191', label: 'Pompiers' },
+    ]},
+    EG: { name: 'Égypte', flag: '🇪🇬', numbers: [
+        { num: '122', label: 'Police' },
+        { num: '123', label: 'Ambulance' },
+        { num: '180', label: 'Pompiers' },
+    ]},
+    GB: { name: 'Royaume-Uni', flag: '🇬🇧', numbers: [
+        { num: '999', label: 'Police / Ambulance / Pompiers' },
+        { num: '112', label: 'Urgences Europe' },
+    ]},
+    ES: { name: 'Espagne', flag: '🇪🇸', numbers: [
+        { num: '112', label: 'Urgences unifiées' },
+        { num: '061', label: 'SAMU' },
+    ]},
+    IT: { name: 'Italie', flag: '🇮🇹', numbers: [
+        { num: '112', label: 'Urgences (NUE)' },
+        { num: '118', label: 'SAMU' },
+    ]},
+    TR: { name: 'Turquie', flag: '🇹🇷', numbers: [
+        { num: '112', label: 'SAMU' },
+        { num: '155', label: 'Police' },
+        { num: '110', label: 'Pompiers' },
+    ]},
+    _DEFAULT: { name: '', flag: '🌍', numbers: [
+        { num: '112', label: 'Numéro d\'urgence international' },
+    ]},
+};
+
+function renderEmergencyNumbers(countryCode) {
+    if (countryCode === lastCountryCode) return;
+    lastCountryCode = countryCode;
+    const data = EMERGENCY_DB[countryCode] || EMERGENCY_DB['_DEFAULT'];
+    const label = data.name ? `${data.flag} Urgences — ${data.name}` : `${data.flag} Urgences internationales`;
+    document.getElementById('emergency-title').textContent = label;
+    document.getElementById('emergency-numbers').innerHTML = data.numbers.map(n =>
+        `<div class="emergency-num">
+            <div class="emergency-num-info">
+                <span class="emergency-num-digits">${n.num}</span>
+                <span class="emergency-num-label">${n.label}</span>
+            </div>
+            <a class="call-btn" href="tel:${n.num}">📞 Appeler</a>
+        </div>`
+    ).join('');
+}
+
+const GPS_REQUIRED_ACCURACY_M = 150;
+const GPS_MAX_FIX_AGE_MS = 30000;
+const GPS_APPLY_DISTANCE_KM = 0.05;
+const GPS_OPTIONS = { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 };
+const PHARMACY_SEARCH_RADII_KM = [0.5, 1, 2, 5, 10, 20];
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = d2r(lat2-lat1), dLon = d2r(lon2-lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(d2r(lat1))*Math.cos(d2r(lat2))*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function showNotif(text, important) {
+    Toastify({
+        text,
+        duration: 4000,
+        gravity: 'bottom',
+        position: 'right',
+        stopOnFocus: false,
+        style: {
+            background: important ? 'rgba(0,200,150,0.92)' : 'rgba(17,34,54,0.95)',
+            color: important ? '#fff' : '#6b8aaa',
+            border: important ? '1px solid #00c896' : '1px solid rgba(107,138,170,0.3)',
+            borderRadius: '10px',
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '13px',
+            fontWeight: '600',
+            padding: '10px 16px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+        }
+    }).showToast();
+}
+
+function pharmacyState(msg) {
+    const list = document.getElementById('pharmacy-list');
+    list.innerHTML = '';
+    const d = document.createElement('div');
+    d.className = 'p-state';
+    d.textContent = msg;
+    list.appendChild(d);
+}
+
+function renderPharmacies(items, radiusKm, shown = 5, placeLabel = '', onExpand = null) {
+    const suffix = placeLabel ? ` — ${placeLabel}` : '';
+    document.getElementById('zone-title').textContent = `Pharmacies${suffix} (< ${radiusKm} km)`;
+    const list = document.getElementById('pharmacy-list');
+    list.innerHTML = '';
+    items.slice(0, shown).forEach((m, i) => {
+        const item = document.createElement('div'); item.className = 'pharmacy-item';
+        const rank = document.createElement('div'); rank.className = 'p-rank'; rank.textContent = i + 1;
+        const info = document.createElement('div'); info.className = 'p-info';
+        const nm = document.createElement('div'); nm.className = 'p-name'; nm.textContent = m.name;
+        const ds = document.createElement('div'); ds.className = 'p-dist'; ds.textContent = `📍 ${m.dist < 1 ? (m.dist*1000).toFixed(0)+' m' : m.dist.toFixed(2)+' km'}`;
+        info.append(nm, ds);
+        const btn = document.createElement('a'); btn.className = 'btn-map'; btn.target = '_blank'; btn.rel = 'noopener';
+        btn.href = `https://www.google.com/maps/search/?api=1&query=${m.lat}%2C${m.lon}`;
+        btn.textContent = 'Maps 📍';
+        item.append(rank, info, btn);
+        list.appendChild(item);
+    });
+    if (shown < items.length) {
+        const rem = items.length - shown;
+        const more = document.createElement('button');
+        more.className = 'load-more-btn';
+        more.textContent = `Voir 5 pharmacies de plus ··· (${rem} restantes)`;
+        more.onclick = () => renderPharmacies(items, radiusKm, shown + 5, placeLabel, onExpand);
+        list.appendChild(more);
+    } else if (onExpand) {
+        const more = document.createElement('button');
+        more.className = 'load-more-btn';
+        more.textContent = '🔍 Élargir la zone de recherche';
+        more.onclick = onExpand;
+        list.appendChild(more);
+    }
+}
+
+function viewboxForRadius(lat, lon, radiusKm) {
+    const latD = radiusKm / 111.32;
+    const lonD = radiusKm / (111.32 * Math.max(Math.cos(d2r(lat)), 0.1));
+    return `${(lon-lonD).toFixed(5)},${(lat-latD).toFixed(5)},${(lon+lonD).toFixed(5)},${(lat+latD).toFixed(5)}`;
+}
+
+async function fetchPharmaciesInRadius(lat, lon, radiusKm, ctrl) {
+    const vb = viewboxForRadius(lat, lon, radiusKm);
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&amenity=pharmacy&viewbox=${vb}&bounded=1&limit=50&accept-language=fr`;
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error('bad status');
+    return { places: await res.json(), url };
+}
+
+async function reverseGeocode(lat, lon) {
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=fr`);
+        if (!res.ok) throw new Error('bad');
+        const data = await res.json();
+        if (data && data.address) {
+            const countryCode = data.address.country_code ? data.address.country_code.toUpperCase() : '';
+            const city = data.address.city || data.address.town || data.address.village || data.address.municipality || '';
+            const state = data.address.state || data.address.region || '';
+            const country = data.address.country || '';
+            return { countryCode, city, state, country };
+        }
+    } catch(e) { console.error(e); }
+    return { countryCode: '', city: '', state: '', country: '' };
+}
+
+async function findNearbyPharmacies(lat, lon) {
+    const searchSeq = ++pharmacySearchSeq;
+    pharmacyState('Recherche des pharmacies en cours…');
+
+    const geo = await reverseGeocode(lat, lon);
+    if (searchSeq !== pharmacySearchSeq) return;
+    const parts = [geo.city, geo.state, geo.country].filter(Boolean);
+    const placeLabel = [...new Set(parts)].join(', ');
+
+    const normalize = places => places.map(p => {
+        const mLat = parseFloat(p.lat), mLon = parseFloat(p.lon);
+        const rawName = p.name || (p.display_name && p.display_name.split(',')[0].trim()) || 'Pharmacie';
+        // Clean up name
+        const name = rawName.replace(/pharmacie/i, '').trim() || rawName;
+        return { name: rawName, lat: mLat, lon: mLon, dist: haversineKm(lat, lon, mLat, mLon) };
+    }).sort((a, b) => a.dist - b.dist);
+
+    async function searchRadius(rIdx, requireResults = true) {
+        const radiusKm = PHARMACY_SEARCH_RADII_KM[rIdx];
+        if (!radiusKm) return false;
+        pharmacyState(`Recherche dans un rayon de ${radiusKm < 1 ? radiusKm*1000+' m' : radiusKm+' km'}…`);
+        let payload, t = null;
+        try {
+            const ctrl = new AbortController();
+            t = setTimeout(() => ctrl.abort(), 12000);
+            payload = await fetchPharmaciesInRadius(lat, lon, radiusKm, ctrl);
+        } catch(e) {
+            if (searchSeq !== pharmacySearchSeq) return true;
+            pharmacyState('⚠️ Impossible de contacter les serveurs de carte. Réessayez plus tard.');
+            return true;
+        } finally {
+            if (t) clearTimeout(t);
+        }
+        if (searchSeq !== pharmacySearchSeq) return true;
+        const items = normalize(payload.places || []).filter(m => m.dist <= radiusKm);
+        if (items.length === 0) {
+            if (requireResults) return false;
+            pharmacyState(`Aucune pharmacie trouvée dans un rayon de ${radiusKm} km.`);
+            return true;
+        }
+        const hasNext = rIdx < PHARMACY_SEARCH_RADII_KM.length - 1;
+        renderPharmacies(items, radiusKm, 5, placeLabel, hasNext ? () => searchRadius(rIdx+1, false) : null);
+        return true;
+    }
+
+    for (let i = 0; i < PHARMACY_SEARCH_RADII_KM.length; i++) {
+        if (await searchRadius(i)) return;
+    }
+    pharmacyState('Aucune pharmacie trouvée dans cette zone.');
+}
+
+function initApp(lat, lng) {
+    const appSeq = ++appLocationSeq;
+    currentLat = lat;
+    currentLng = lng;
+
+    const isManual = document.getElementById('pos-mode-select').value === 'manual';
+    document.getElementById('gps-txt').textContent = isManual
+        ? `Position manuelle : ${lat.toFixed(5)}, ${lng.toFixed(5)}`
+        : `GPS actif : ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+    document.getElementById('global-maps-link').href = `https://www.google.com/maps/search/pharmacie/@${lat},${lng},15z`;
+
+    // Géocodage inverse : urgences + label manuel
+    reverseGeocode(lat, lng).then(geo => {
+        if (appSeq !== appLocationSeq) return;
+        // Numéros d'urgence selon le pays détecté
+        renderEmergencyNumbers(geo.countryCode || '');
+        // Label position manuelle
+        if (isManual) {
+            const parts = [geo.city, geo.state, geo.country].filter(Boolean);
+            const info = document.getElementById('manual-location-info');
+            if (parts.length > 0) {
+                info.textContent = '📍 ' + [...new Set(parts)].join(', ');
+                info.style.display = 'block';
+            } else {
+                info.style.display = 'none';
+            }
+        }
+    });
+
+    findNearbyPharmacies(lat, lng);
+}
+
+function isAccurateGps(pos) {
+    if (!pos || !pos.coords) return false;
+    const acc = pos.coords.accuracy;
+    if (!Number.isFinite(acc) || acc > GPS_REQUIRED_ACCURACY_M) return false;
+    const ageMs = Number.isFinite(pos.timestamp) ? Math.max(0, Date.now() - pos.timestamp) : Infinity;
+    return ageMs <= GPS_MAX_FIX_AGE_MS;
+}
+
+function applyGpsPosition(pos, notifyOnChange = true) {
+    const { latitude: newLat, longitude: newLng, accuracy: acc } = pos.coords;
+    const accText = Number.isFinite(acc) ? `${Math.round(acc)} m` : '?';
+    const hasPos = Number.isFinite(currentLat) && Number.isFinite(currentLng);
+    const dist = hasPos ? haversineKm(currentLat, currentLng, newLat, newLng) : Infinity;
+    if (!hasPos || dist > GPS_APPLY_DISTANCE_KM) {
+        initApp(newLat, newLng);
+        if (hasPos && notifyOnChange)
+            showNotif(`📍 Nouvelle position : ${newLat.toFixed(4)}, ${newLng.toFixed(4)} · précision ${accText}`, true);
+        return true;
+    }
+    return false;
+}
+
+function startGPS() {
+    if (gpsWatchId !== null) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+    currentLat = null; currentLng = null;
+    document.getElementById('gps-txt').textContent = '📡 Localisation en cours…';
+    pharmacyState('En attente des coordonnées GPS…');
+    document.getElementById('global-maps-link').href = '#';
+    document.getElementById('zone-title').textContent = 'Pharmacies à proximité';
+
+    if (!navigator.geolocation) {
+        document.getElementById('gps-txt').textContent = '⚠️ GPS non supporté par ce navigateur.';
+        pharmacyState('⚠️ Votre navigateur ne supporte pas la géolocalisation.');
+        return;
+    }
+
+    let initialized = false;
+    gpsWatchId = navigator.geolocation.watchPosition(pos => {
+        if (!isAccurateGps(pos)) {
+            const acc = pos.coords ? Math.round(pos.coords.accuracy) : '?';
+            document.getElementById('gps-txt').textContent = `📡 Signal GPS en attente… (précision: ${acc} m)`;
+            if (!initialized) pharmacyState('Signal GPS insuffisant, patience…');
+            return;
+        }
+        applyGpsPosition(pos, initialized);
+        initialized = true;
+    }, err => {
+        const msgs = {
+            1: '⚠️ Permission GPS refusée. Autorisez la localisation dans votre navigateur.',
+            2: '⚠️ GPS indisponible ou signal faible.',
+            3: '⚠️ Délai GPS dépassé. Réessayez.',
+        };
+        const msg = (err && msgs[err.code]) || '⚠️ Erreur GPS inconnue.';
+        document.getElementById('gps-txt').textContent = msg;
+        pharmacyState(msg);
+        if (err && err.code === 1 && gpsWatchId !== null) {
+            navigator.geolocation.clearWatch(gpsWatchId);
+            gpsWatchId = null;
+        }
+    }, GPS_OPTIONS);
+}
+
+window.onload = function() {
+    const posModeSelect = document.getElementById('pos-mode-select');
+    const manualPanel = document.getElementById('manual-pos-panel');
+    const applyBtn = document.getElementById('apply-pos-btn');
+    const posError = document.getElementById('pos-error');
+
+    function applyManual() {
+        const raw = document.getElementById('manual-coords').value.trim();
+        posError.style.display = 'none';
+        const parts = raw.split(',');
+        const lat = parseFloat(parts[0]);
+        const lon = parseFloat(parts[1]);
+        if (parts.length < 2 || isNaN(lat) || lat < -90 || lat > 90 || isNaN(lon) || lon < -180 || lon > 180) {
+            posError.textContent = 'Coordonnées invalides. Exemple : 48.856600, 2.352200';
+            posError.style.display = 'block';
+            return;
+        }
+        posError.style.display = 'none';
+        initApp(lat, lon);
+    }
+
+    posModeSelect.onchange = function() {
+        if (this.value === 'manual') {
+            if (Number.isFinite(currentLat) && Number.isFinite(currentLng)) {
+                document.getElementById('manual-coords').value = `${currentLat.toFixed(6)}, ${currentLng.toFixed(6)}`;
+            }
+            manualPanel.style.display = 'flex';
+            if (gpsWatchId !== null) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+        } else {
+            manualPanel.style.display = 'none';
+            document.getElementById('manual-location-info').style.display = 'none';
+            startGPS();
+        }
+    };
+
+    applyBtn.onclick = applyManual;
+    document.getElementById('manual-coords').addEventListener('keydown', e => { if (e.key === 'Enter') applyManual(); });
+
+    startGPS();
+};
+</script>
+</body>
+</html>
